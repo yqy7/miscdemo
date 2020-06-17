@@ -43,5 +43,6 @@ public class KMP {
     public static void main(String[] args) {
         System.out.println(Arrays.toString(kmpNext("abcbabcd")));
         System.out.println(kmp("abcbabcd", "cba"));
+        System.out.println(kmp("abcbabcd", "cbc"));
     }
 }
