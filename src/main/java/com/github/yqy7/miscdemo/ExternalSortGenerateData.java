@@ -10,10 +10,11 @@ import java.util.Random;
  * @author qiyun.yqy
  * @date 2020/6/13
  */
-public class GenerateData {
+public class ExternalSortGenerateData {
     public static void main(String[] args) throws IOException {
-        final int MAX=80;
-        File f=new File("./myInputFile.txt");
+        final int MAX=8000_0000; // 208M = 26 * 800_0000
+        File f=new File("./temp/myInputFile.txt");
+        f.mkdirs();
         if (f.exists())
             f.delete();
         BufferedWriter bufw=new BufferedWriter(new FileWriter(f));
@@ -24,12 +25,12 @@ public class GenerateData {
         bufw.flush();
         bufw.close();
     }
-    public static String getRandomString(){
+
+    public static String getRandomString(){ // 每行25个字符
         StringBuilder sb=new StringBuilder();
         Random random=new Random();
         for (int i = 0; i < 8; i++) {
             sb.append((char)(random.nextInt(26)+97));
-
         }
         sb.append(',');
         for (int i = 0; i <16 ; i++) {
