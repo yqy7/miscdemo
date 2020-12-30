@@ -1,6 +1,7 @@
 package com.github.yqy7.miscdemo;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileReader;
@@ -48,17 +49,25 @@ public class ExternalSort2 {
         }
     }
 
+    // TODO 优化性能，比较 FileChannel 和 FileWriter，AsynchronousFileChannel
+
     public static void sort(String inputFile, String outputFile) {
         List<Node> nodeList = new ArrayList<>();
         PrintWriter writer = null;
         List<String> tmpFileList = null;
         try {
+            // 拆分
+            long start = System.currentTimeMillis();
             tmpFileList = splitAndSort(inputFile, outputFile);
+            long end = System.currentTimeMillis();
+            System.out.println("splitAndSort cost: " + (end - start) + "ms");
 
-            writer = new PrintWriter(new File(outputFile));
+            // 归并
+
+            writer = new PrintWriter(new BufferedWriter(new FileWriter(outputFile), 8192 * 1024));
 
             for (int i = 0; i < tmpFileList.size(); i++) { // 创建node
-                nodeList.add(new Node(new BufferedReader(new FileReader(tmpFileList.get(i)))));
+                nodeList.add(new Node(new BufferedReader(new FileReader(tmpFileList.get(i)), 8192 * 100)));
             }
 
             PriorityQueue<Node> queue = new PriorityQueue<>();
@@ -79,18 +88,12 @@ public class ExternalSort2 {
             close(writer);
             nodeList.forEach(node -> close(node.reader));
         }
-
-        // 清理临时文件
-        if (tmpFileList != null) {
-            tmpFileList.forEach(s -> deleteFile(s));
-        }
     }
 
     public static List<String> splitAndSort(String inputFile, String outputFile) throws IOException {
         List<String> tmpFileList = new ArrayList<>();
         try (
-            BufferedReader reader = new BufferedReader(new FileReader(inputFile));
-            FileChannel fileChannel = FileChannel.open(Paths.get(inputFile), StandardOpenOption.READ)
+            BufferedReader reader = new BufferedReader(new FileReader(inputFile), 8192 * 1024);
         ) {
 
             String[] rows = new String[CHUNK_ROWS];
@@ -120,17 +123,24 @@ public class ExternalSort2 {
         return tmpFileList;
     }
 
-    public static String writeToTmpFile(String[] rows, int total, String outputFile) throws IOException {
-        try (PrintWriter writer = new PrintWriter(new FileWriter(outputFile))){ // 关闭autoflush前 36003ms，关闭之后 10604ms
+    public static String writeToTmpFile(String[] rows, int total, String outputFileName) throws IOException {
+        File outputFile = new File(outputFileName);
+        outputFile.deleteOnExit();
+        try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(outputFile), 8192 * 1024))){ // 关闭autoflush前 36003ms，关闭之后 10604ms
             // 排序
-            Arrays.sort(rows, 0, total); // 改成 parallelSort 也没什么变化
-
+            long start = System.currentTimeMillis();
+            Arrays.parallelSort(rows, 0, total); // 改成 parallelSort 稍快
+            long end = System.currentTimeMillis();
+            System.out.println(outputFileName + " sort cost: " + (end - start) + "ms");
+            start = end;
             // 写入
             for (int i = 0; i < total; i++) {
                 writer.println(rows[i]);
             }
+            end = System.currentTimeMillis();
+            System.out.println(outputFileName + " write cost: " + (end - start) + "ms");
         }
-        return outputFile;
+        return outputFileName;
     }
 
     public static void close(Closeable resource) {
@@ -143,20 +153,14 @@ public class ExternalSort2 {
         }
     }
 
-    public static void deleteFile(String fileName) {
-        try {
-            Files.delete(Paths.get(fileName));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     public static void main(String[] args) throws IOException {
         long start = System.currentTimeMillis();
-
         sort("./temp/myInputFile.txt","./temp/output.txt");
-
         long end = System.currentTimeMillis();
-        System.out.println("cost: " + (end - start)); // 459573 ms
+        System.out.println("total cost: " + (end - start) + "ms");
+
+        // 8k内存：459.573s
+        // 80k内存：292.114s
+        // 800k内存：308.606s
     }
 }

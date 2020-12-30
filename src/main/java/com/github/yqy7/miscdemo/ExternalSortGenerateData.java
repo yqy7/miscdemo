@@ -17,7 +17,7 @@ public class ExternalSortGenerateData {
         f.mkdirs();
         if (f.exists())
             f.delete();
-        BufferedWriter bufw=new BufferedWriter(new FileWriter(f));
+        BufferedWriter bufw=new BufferedWriter(new FileWriter(f), 1024 * 1024 * 8);
         for (int i=0;i<MAX;++i){
             bufw.write(getRandomString());
             bufw.newLine();
